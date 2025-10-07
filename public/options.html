@@ -1,0 +1,138 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Campaign – Options</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+  <script src="/js/translations.js"></script>
+  <script src="/js/app.js"></script>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="brand">Campaign</div>
+      <div class="lang-switch" aria-label="Language Switcher">
+        <button onclick="__siteUtils.setLang('ar')" title="العربية"><img src="/assets/flag-sa.png" alt="AR"></button>
+        <button onclick="__siteUtils.setLang('en')" title="English"><img src="/assets/flag-uk.png" alt="EN"></button>
+        <button onclick="__siteUtils.setLang('tr')" title="Türkçe"><img src="/assets/flag-tr.png" alt="TR"></button>
+      </div>
+    </header>
+
+    <section>
+      <h1 data-i18n="page2_title">اختر خيار الغرفة/الشقة</h1>
+      <p class="note" data-i18n="page2_sub">اختر موسماً مناسباً وخياراً للتجربة المسبقة.</p>
+
+      <div class="cards" id="cards"></div>
+    </section>
+
+    <footer class="footer">
+      <span data-i18n="footer_rights">جميع الحقوق محفوظة</span>
+    </footer>
+  </div>
+
+  <script>
+    (function(){
+      const { getLang, applyTranslations, logEvent } = window.__siteUtils;
+      const lang = getLang();
+      applyTranslations(lang);
+
+      const page = 'page2';
+      const startTs = Date.now();
+      let chosen = null;
+
+      // Example options (you can edit freely)
+      const OPTIONS = [
+        { id: 'opt1', title: 'Studio – City View', seasonKey: 'season_ramadan', season:'رمضان', price: 2500, years: 1, photo: 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?q=80&w=1200&auto=format&fit=crop' },
+        { id: 'opt2', title: '1BR – Near Center', seasonKey: 'season_hajj', season:'الحج', price: 4800, years: 2, photo: 'https://images.unsplash.com/photo-1505691723518-36a5ac3b2fb1?q=80&w=1200&auto=format&fit=crop' },
+        { id: 'opt3', title: '2BR – Family', seasonKey: 'season_school', season:'عطلة المدارس', price: 3900, years: 1, photo: 'https://images.unsplash.com/photo-1461409971633-aa0e46732112?q=80&w=1200&auto=format&fit=crop' },
+        { id: 'opt4', title: 'Penthouse', seasonKey: 'season_normal', season:'شهر عادي', price: 5200, years: 3, photo: 'https://images.unsplash.com/photo-1502005229762-cf1b2da7c46f?q=80&w=1200&auto=format&fit=crop' },
+        { id: 'opt5', title: 'Serviced Apartment', seasonKey: 'season_shaban', season:'شعبان', price: 3100, years: 2, photo: 'https://images.unsplash.com/photo-1484154218962-a197022b5858?q=80&w=1200&auto=format&fit=crop' }
+      ];
+
+      const cards = document.getElementById('cards');
+      const sid = window.__sessionId;
+
+      // Log view
+      logEvent({
+        event: 'page2_view',
+        session_id: sid,
+        timestamp: startTs,
+        page,
+        language: lang
+      });
+
+      function currency(n){ return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'SAR' }).format(n); }
+
+      // Render cards
+      const dict = TRANSLATIONS[lang];
+      cards.innerHTML = OPTIONS.map(o => `
+        <div class="card">
+          <img src="${o.photo}" alt="${o.title}">
+          <div class="body">
+            <div class="title">${o.title}</div>
+            <div class="row"><span class="badge">${dict.season}</span><span>${dict[o.seasonKey] || o.season}</span></div>
+            <div class="row"><span class="badge">${dict.price}</span><span>${currency(o.price)}</span></div>
+            <div class="row"><span class="badge">${dict.years}</span><span>${o.years}</span></div>
+            <div class="actions">
+              <input type="radio" name="preselect" value="${o.id}">
+              <button data-id="${o.id}" class="preorder">${dict.preorder_now}</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      // Preselect radio when clicking button or vice versa
+      cards.addEventListener('click', async (e) => {
+        if (e.target.matches('input[type="radio"][name="preselect"]')) {
+          const id = e.target.value;
+          chosen = OPTIONS.find(x => x.id === id) || null;
+        }
+        if (e.target.matches('button.preorder')) {
+          const id = e.target.getAttribute('data-id');
+          chosen = OPTIONS.find(x => x.id === id) || null;
+          // check the corresponding radio
+          const radio = cards.querySelector(`input[type="radio"][value="${id}"]`);
+          if (radio) radio.checked = true;
+
+          const duration = Date.now() - startTs;
+          await logEvent({
+            event: 'page2_select',
+            session_id: sid,
+            timestamp: Date.now(),
+            page,
+            duration_ms: duration,
+            chosen_option: {
+              id: chosen.id,
+              title: chosen.title,
+              season: dict[chosen.seasonKey] || chosen.season,
+              price: chosen.price,
+              years: chosen.years
+            },
+            language: lang
+          });
+
+          alert(dict.preorder_now + ' ✅');
+        }
+      });
+
+      // Exit without choosing
+      window.addEventListener('beforeunload', () => {
+        if (!chosen) {
+          const duration = Date.now() - startTs;
+          logEvent({
+            event: 'page2_exit',
+            session_id: sid,
+            timestamp: Date.now(),
+            page,
+            duration_ms: duration,
+            chosen_option: null,
+            language: lang
+          }, { beacon: true });
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,95 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Campaign – Page 1</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+  <script src="/js/translations.js"></script>
+  <script src="/js/app.js"></script>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="brand">Campaign</div>
+      <div class="lang-switch" aria-label="Language Switcher">
+        <button onclick="__siteUtils.setLang('ar')" title="العربية"><img src="/assets/flag-sa.png" alt="AR"></button>
+        <button onclick="__siteUtils.setLang('en')" title="English"><img src="/assets/flag-uk.png" alt="EN"></button>
+        <button onclick="__siteUtils.setLang('tr')" title="Türkçe"><img src="/assets/flag-tr.png" alt="TR"></button>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div class="ad">
+        <div>
+          <h1 data-i18n="page1_title">إعلان كبير يتحدث عن الفكرة</h1>
+          <p data-i18n="page1_sub">نقدّم لكم فكرة مبتكرة — نريد معرفة اهتمامكم حسب المدن والدول.</p>
+          <button id="cta" class="cta" data-i18n="cta_preorder">للحجز المبكر اضغط هنا</button>
+        </div>
+      </div>
+      <div>
+        <img src="https://images.unsplash.com/photo-1505692794403-34d4982ae318?q=80&w=1200&auto=format&fit=crop" alt="Ad" style="width:100%;height:100%;object-fit:cover;border-radius:16px;border:1px solid #25304a;">
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span data-i18n="footer_rights">جميع الحقوق محفوظة</span> · <span data-i18n="language_label">اللغة</span>
+    </footer>
+  </div>
+
+  <script>
+    (function(){
+      const { getLang, applyTranslations, logEvent } = window.__siteUtils;
+      const lang = getLang();
+      applyTranslations(lang);
+
+      const page = 'page1';
+      const startTs = Date.now();
+      let clicked = false;
+
+      // Log initial view
+      logEvent({
+        event: 'page1_view',
+        session_id: window.__sessionId,
+        timestamp: startTs,
+        page,
+        language: lang
+      });
+
+      // CTA click
+      document.getElementById('cta').addEventListener('click', async () => {
+        clicked = true;
+        const duration = Date.now() - startTs;
+        await logEvent({
+          event: 'page1_click',
+          session_id: window.__sessionId,
+          timestamp: Date.now(),
+          page,
+          duration_ms: duration,
+          clicked: true,
+          language: lang
+        });
+        const url = new URL('/options.html', location.origin);
+        url.searchParams.set('sid', window.__sessionId);
+        url.searchParams.set('lang', lang);
+        location.href = url.toString();
+      });
+
+      // Exit (no click)
+      window.addEventListener('beforeunload', () => {
+        const duration = Date.now() - startTs;
+        logEvent({
+          event: 'page1_exit',
+          session_id: window.__sessionId,
+          timestamp: Date.now(),
+          page,
+          duration_ms: duration,
+          clicked: !!clicked,
+          language: lang
+        }, { beacon: true });
+      });
+    })();
+  </script>
+</body>
+</html>

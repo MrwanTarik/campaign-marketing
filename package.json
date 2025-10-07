@@ -1,0 +1,14 @@
+{
+  "name": "campaign-site",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Two-page marketing campaign site with JSON logging, IP geolocation, and multilingual UI (AR/EN/TR)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "geoip-lite": "^1.4.7"
+  }
+}
