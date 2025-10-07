@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Campaign Analytics - View Logs</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+    <style>
+      .controls {
+        margin: 20px 0;
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .controls button,
+      .controls select {
+        background: var(--card);
+        color: var(--fg);
+        border: 1px solid #2a344a;
+        border-radius: 8px;
+        padding: 10px 16px;
+        cursor: pointer;
+        font-size: 1rem;
+      }
+      .controls button:hover {
+        background: var(--brand);
+      }
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin: 20px 0;
+      }
+      .stat-card {
+        background: var(--card);
+        border: 1px solid #2a344a;
+        border-radius: 12px;
+        padding: 16px;
+      }
+      .stat-card h3 {
+        margin: 0 0 8px 0;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+      .stat-card .value {
+        font-size: 2rem;
+        font-weight: 600;
+        color: var(--brand);
+      }
+      .log-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+      }
+      .log-table th,
+      .log-table td {
+        border: 1px solid #2a344a;
+        padding: 12px;
+        text-align: left;
+      }
+      .log-table th {
+        background: var(--card);
+        font-weight: 600;
+      }
+      .log-table tr:hover {
+        background: var(--card);
+      }
+      .event-badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-weight: 500;
+      }
+      .event-view {
+        background: #1e40af;
+        color: white;
+      }
+      .event-click {
+        background: #16a34a;
+        color: white;
+      }
+      .event-exit {
+        background: #dc2626;
+        color: white;
+      }
+      .event-select {
+        background: #9333ea;
+        color: white;
+      }
+      .loading {
+        text-align: center;
+        padding: 40px;
+        color: var(--muted);
+      }
+      .error {
+        background: #7f1d1d;
+        border: 1px solid #dc2626;
+        color: #fca5a5;
+        padding: 16px;
+        border-radius: 8px;
+        margin: 20px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header class="header">
+        <div class="brand">Campaign Analytics</div>
+        <a href="/" style="color: var(--brand); text-decoration: none"
+          >← Back to Campaign</a
+        >
+      </header>
+
+      <section>
+        <h1>Event Logs Viewer</h1>
+
+        <div class="controls">
+          <select id="pageFilter">
+            <option value="">All Pages</option>
+            <option value="page1">Page 1 Only</option>
+            <option value="page2">Page 2 Only</option>
+          </select>
+
+          <select id="limitSelect">
+            <option value="50">50 logs</option>
+            <option value="100" selected>100 logs</option>
+            <option value="200">200 logs</option>
+            <option value="500">500 logs</option>
+          </select>
+
+          <button id="refreshBtn">🔄 Refresh</button>
+          <button id="downloadBtn">📥 Download JSON</button>
+          <button id="clearFiltersBtn">Clear Filters</button>
+        </div>
+
+        <div id="stats" class="stats"></div>
+        <div id="loading" class="loading">Loading logs...</div>
+        <div id="error" class="error" style="display: none"></div>
+        <div id="tableContainer"></div>
+      </section>
+
+      <footer class="footer">Campaign Site Analytics Viewer</footer>
+    </div>
+
+    <script>
+      let currentLogs = [];
+
+      async function loadLogs() {
+        const pageFilter = document.getElementById("pageFilter").value;
+        const limit = document.getElementById("limitSelect").value;
+        const loading = document.getElementById("loading");
+        const error = document.getElementById("error");
+        const tableContainer = document.getElementById("tableContainer");
+
+        loading.style.display = "block";
+        error.style.display = "none";
+        tableContainer.innerHTML = "";
+
+        try {
+          const params = new URLSearchParams({ limit });
+          if (pageFilter) params.append("page", pageFilter);
+
+          const response = await fetch(`/api/logs?${params}`);
+          const data = await response.json();
+
+          if (!data.ok) {
+            throw new Error(data.error || "Failed to load logs");
+          }
+
+          currentLogs = data.logs;
+          loading.style.display = "none";
+
+          displayStats(currentLogs);
+          displayTable(currentLogs);
+        } catch (err) {
+          loading.style.display = "none";
+          error.style.display = "block";
+          error.textContent = `Error: ${err.message}`;
+          console.error("Error loading logs:", err);
+        }
+      }
+
+      function displayStats(logs) {
+        const stats = {
+          total: logs.length,
+          page1Views: logs.filter((l) => l.event === "page1_view").length,
+          page1Clicks: logs.filter((l) => l.event === "page1_click").length,
+          page2Views: logs.filter((l) => l.event === "page2_view").length,
+          page2Selections: logs.filter((l) => l.event === "page2_select")
+            .length,
+          uniqueSessions: new Set(logs.map((l) => l.session_id)).size,
+          countries: new Set(logs.map((l) => l.country).filter(Boolean)).size,
+        };
+
+        const statsHTML = `
+        <div class="stat-card">
+          <h3>Total Events</h3>
+          <div class="value">${stats.total}</div>
+        </div>
+        <div class="stat-card">
+          <h3>Unique Sessions</h3>
+          <div class="value">${stats.uniqueSessions}</div>
+        </div>
+        <div class="stat-card">
+          <h3>Page 1 Views</h3>
+          <div class="value">${stats.page1Views}</div>
+        </div>
+        <div class="stat-card">
+          <h3>Page 1 Clicks</h3>
+          <div class="value">${stats.page1Clicks}</div>
+        </div>
+        <div class="stat-card">
+          <h3>Page 2 Views</h3>
+          <div class="value">${stats.page2Views}</div>
+        </div>
+        <div class="stat-card">
+          <h3>Page 2 Selections</h3>
+          <div class="value">${stats.page2Selections}</div>
+        </div>
+        <div class="stat-card">
+          <h3>Countries</h3>
+          <div class="value">${stats.countries}</div>
+        </div>
+        <div class="stat-card">
+          <h3>Conversion Rate</h3>
+          <div class="value">${
+            stats.page1Views > 0
+              ? ((stats.page1Clicks / stats.page1Views) * 100).toFixed(1)
+              : 0
+          }%</div>
+        </div>
+      `;
+
+        document.getElementById("stats").innerHTML = statsHTML;
+      }
+
+      function displayTable(logs) {
+        if (logs.length === 0) {
+          document.getElementById("tableContainer").innerHTML =
+            '<p class="note">No logs found.</p>';
+          return;
+        }
+
+        const tableHTML = `
+        <table class="log-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Event</th>
+              <th>Page</th>
+              <th>Session ID</th>
+              <th>IP</th>
+              <th>Country</th>
+              <th>City</th>
+              <th>Language</th>
+              <th>Duration (s)</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${logs
+              .map(
+                (log) => `
+              <tr>
+                <td>${new Date(log.server_received_at).toLocaleString()}</td>
+                <td><span class="event-badge event-${
+                  log.event.includes("view")
+                    ? "view"
+                    : log.event.includes("click")
+                    ? "click"
+                    : log.event.includes("select")
+                    ? "select"
+                    : "exit"
+                }">${log.event}</span></td>
+                <td>${log.page}</td>
+                <td style="font-size: 0.8rem;">${log.session_id?.substring(
+                  0,
+                  8
+                )}...</td>
+                <td>${log.ip || "N/A"}</td>
+                <td>${log.country || "N/A"}</td>
+                <td>${log.city || "N/A"}</td>
+                <td>${log.language || "N/A"}</td>
+                <td>${
+                  log.duration_ms ? (log.duration_ms / 1000).toFixed(1) : "N/A"
+                }</td>
+                <td>${
+                  log.chosen_option
+                    ? `${log.chosen_option.title} (${log.chosen_option.price} SAR)`
+                    : log.clicked !== undefined
+                    ? log.clicked
+                      ? "Clicked"
+                      : "No click"
+                    : "N/A"
+                }</td>
+              </tr>
+            `
+              )
+              .join("")}
+          </tbody>
+        </table>
+      `;
+
+        document.getElementById("tableContainer").innerHTML = tableHTML;
+      }
+
+      function downloadJSON() {
+        const dataStr = JSON.stringify(currentLogs, null, 2);
+        const dataBlob = new Blob([dataStr], { type: "application/json" });
+        const url = URL.createObjectURL(dataBlob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `campaign-logs-${new Date().toISOString()}.json`;
+        link.click();
+        URL.revokeObjectURL(url);
+      }
+
+      // Event listeners
+      document.getElementById("refreshBtn").addEventListener("click", loadLogs);
+      document
+        .getElementById("downloadBtn")
+        .addEventListener("click", downloadJSON);
+      document
+        .getElementById("pageFilter")
+        .addEventListener("change", loadLogs);
+      document
+        .getElementById("limitSelect")
+        .addEventListener("change", loadLogs);
+      document
+        .getElementById("clearFiltersBtn")
+        .addEventListener("click", () => {
+          document.getElementById("pageFilter").value = "";
+          document.getElementById("limitSelect").value = "100";
+          loadLogs();
+        });
+
+      // Load logs on page load
+      loadLogs();
+    </script>
+  </body>
+</html>

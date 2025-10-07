@@ -8,6 +8,8 @@
     "start": "node server.js"
   },
   "dependencies": {
+    "@vercel/blob": "^2.0.0",
+    "dotenv": "^17.2.3",
     "express": "^4.19.2",
     "geoip-lite": "^1.4.7"
   }
